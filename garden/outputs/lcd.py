@@ -1,11 +1,12 @@
 from RPLCD import CharLCD
 import RPi.GPIO as GPIO
 from time import sleep
-import queue
 import signal
 from threading import Thread
 import socketio
 from collections import deque
+
+GPIO.setwarnings(False)
 
 # PINS
 RS_PIN = 21
@@ -46,7 +47,12 @@ def processLongMessage(x,y,body):
   for i in range(l):
     s = body[0+i:16+i]
     dq.append(Message(y, x, s))
-    sleep(.5)
+    sleep(0.8)
+  sleep(1)
+  for i in range(16):
+    s = ' '
+    dq.append(Message(y, i, s))
+    sleep(0.4)
 
 
 def worker():
@@ -55,7 +61,6 @@ def worker():
       item: Message = dq.popleft()
       if str(item) != '':
         if len(item.body) > 16:
-          print('too long')
           processor = Thread(target=processLongMessage, args=(item.x,item.y,item.body,))
           processor.start()
         else:
@@ -67,6 +72,7 @@ def worker():
 def write(m):
   lcd.cursor_pos = (m.y, m.x)
   lcd.write_string(m.body)
+  # sleep(0.05)
 
 
 sio = socketio.Client()
@@ -79,7 +85,7 @@ def clock(data):
 @sio.event
 def dht(data):
   dq.append(Message(0, 0, str(data['t'])+'C'))
-  dq.append(Message(0, 4, str(data['h'])+'%'))
+  dq.append(Message(0, 4, str(data['h'])+'% '))
 
 
 @sio.event
@@ -97,6 +103,17 @@ def motion(d):
 def noMotion(d):
   sleep(2)
   dq.append(Message(0, 14, ' '))
+
+# @sio.event
+# def quote(d):
+#   sleep(2)
+#   dq.append(Message(1, 0, d['quote']))
+
+@sio.event
+def plants(d):
+  sleep(2)
+  dq.append(Message(1, 0, d['data']))
+
 
 
 running = True
